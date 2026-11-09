@@ -1,0 +1,20 @@
+GITHUB RELEASE MANIFEST
+========================================
+Created: 2026-11-09T10:48:40
+
+Source files copied: 12
+Documentation files copied: 4
+
+Excluded intentionally:
+- SQLite databases
+- Local datasets and saved predictions
+- Output reports
+- Conda environments
+- Streamlit secrets
+- User-specific machine files
+
+WARNING:
+Review source and documentation manually.
+A .gitignore is not a secret scanner.
+This package is not fully runnable without
+local data and environment setup.

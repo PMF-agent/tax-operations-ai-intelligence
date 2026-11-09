@@ -1,0 +1,50 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*
+*secret*
+
+# Python environments
+.venv/
+venv/
+env/
+conda-env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# SQLite and temporary files
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.bak
+*.tmp
+
+# Local application data and outputs
+Data/
+Output/
+Notebook/
+Portfolio/
+GitHub_Release/
+*.log
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Editors and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
