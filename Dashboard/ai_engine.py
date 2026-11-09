@@ -35,6 +35,28 @@ ALLOWED_DEPENDENCIES = [
 ]
 
 
+# Expand only known agency-related abbreviations, preserving other text.
+# Word boundaries prevent replacing fragments inside longer words.
+AGENCY_ABBREVIATIONS = {
+    "EDD": "California Employment Development Department",
+    "SUI": "State Unemployment Insurance",
+    "IRS": "Internal Revenue Service",
+    "EIN": "Employer Identification Number",
+}
+
+
+def expand_agency_terms(value):
+    text = normalize_text(value)
+    for abbreviation, full_name in AGENCY_ABBREVIATIONS.items():
+        text = re.sub(
+            rf"\b{re.escape(abbreviation)}\b",
+            full_name,
+            text,
+            flags=re.IGNORECASE,
+        )
+    return text
+
+
 def initialize_ai_table():
     with sqlite3.connect(DB_PATH) as con:
         con.execute("""
@@ -123,6 +145,9 @@ Rules:
 - Do not invent documents, deadlines, or legal rules.
 - Identify information not supplied in the case text.
 - Recommend one short practical next action.
+- Write full agency and operational terminology; do not use unexplained abbreviations.
+- For California EDD, write California Employment Development Department.
+- For SUI, write State Unemployment Insurance.
 - Return JSON only.
 
 CASE:
@@ -211,6 +236,8 @@ CASE:
             + analysis["predicted_dependency"]
         )
 
+    analysis["missing_information"] = expand_agency_terms(analysis["missing_information"])
+    analysis["recommended_next_action"] = expand_agency_terms(analysis["recommended_next_action"])
     return analysis
 
 

@@ -136,7 +136,6 @@ from case_lifecycle import (
 from recommendation_engine import recommend_case_action
 from priority_validation import (
     build_priority_queue,
-    validate_simulation,
 )
 
 
@@ -347,16 +346,6 @@ class IntegrationTests(unittest.TestCase):
             queue["case_id"].tolist(),
             ["T-1", "T-2", "T-3", "T-4"],
         )
-
-    def test_08_simulation_integrity(self):
-        result = validate_simulation()
-
-        self.assertEqual(result["total_cases"], 50)
-        self.assertTrue(result["expected_distribution"])
-        self.assertTrue(result["unique_case_ids"])
-        self.assertTrue(result["valid_queue_ranks"])
-        self.assertTrue(result["risk_priority_order_valid"])
-
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -5,7 +5,7 @@ from datetime import datetime
 
 import streamlit as st
 
-from ai_engine import process_case
+from ai_engine import process_case, expand_agency_terms
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_DIR / "Data" / "operations.db"
@@ -208,28 +208,20 @@ def render_case_intake():
             success, result = process_case(case_id)
 
         if success:
-            st.success("AI classification completed.")
+            st.success("AI analysis completed.")
+            st.markdown("#### Case Information (from intake)")
+            st.write("**Selected Category:**", case_type)
+            st.write("**State:**", state)
 
-            st.write(
-                "**Predicted Category:**",
-                result["predicted_case_type"]
-            )
-            st.write(
-                "**Predicted State:**",
-                result["predicted_state"]
-            )
-            st.write(
-                "**Predicted Dependency:**",
-                result["predicted_dependency"]
-            )
-            st.write(
-                "**Missing Information:**",
-                result["missing_information"]
-            )
-            st.write(
-                "**Recommended Next Action:**",
-                result["recommended_next_action"]
-            )
+            st.markdown("#### AI-Generated Operational Insights")
+            assessed = result["predicted_case_type"]
+            if assessed == case_type:
+                st.write("**AI Category Assessment:**", assessed, "— Matches intake category")
+            else:
+                st.write("**AI Category Assessment:**", assessed, "— Differs from intake category; review recommended")
+            st.write("**Identified Dependency:**", result["predicted_dependency"])
+            st.write("**Missing Information:**", expand_agency_terms(result["missing_information"]))
+            st.write("**Recommended Next Action:**", expand_agency_terms(result["recommended_next_action"]))
 
             st.caption(
                 "AI analysis is advisory. Operational SLA "

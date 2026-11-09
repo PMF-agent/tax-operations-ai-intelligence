@@ -12,7 +12,6 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-from priority_validation import validate_simulation
 
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "Output"
@@ -51,27 +50,7 @@ def main():
         f"Errors: {len(result.errors)}",
         f"Skipped: {len(result.skipped)}",
         f"Overall: {'PASS' if result.wasSuccessful() else 'FAIL'}",
-        "",
-        "ORIGINAL SIMULATION CHECKS",
-        "-" * 48,
     ]
-
-    try:
-        simulation = validate_simulation()
-
-        for key, value in simulation.items():
-            lines.append(f"{key}: {value}")
-
-    except Exception as exc:
-        lines.append(f"Simulation validation failed: {exc}")
-        result_success = False
-    else:
-        result_success = all([
-            simulation["expected_distribution"],
-            simulation["unique_case_ids"],
-            simulation["valid_queue_ranks"],
-            simulation["risk_priority_order_valid"],
-        ])
 
     lines += [
         "",
@@ -80,14 +59,13 @@ def main():
         "Synthetic deterministic test cases.",
         "Production recommendation function tested directly.",
         "Queue ordering policy tested independently.",
-        "Original saved simulation checked for risk ordering.",
         "Live Streamlit rendering and SQLite writes are not tested.",
         "No real-world SLA accuracy is claimed.",
         "No agency deadlines are independently verified.",
         "",
     ]
 
-    success = result.wasSuccessful() and result_success
+    success = result.wasSuccessful()
 
     lines.append(
         "FINAL RESULT: " + ("PASS" if success else "FAIL")

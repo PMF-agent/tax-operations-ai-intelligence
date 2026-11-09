@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit as st
 
 from case_intake import render_case_intake
+from ai_engine import expand_agency_terms
 from ai_engine import (
     process_case,
     get_analysis,
@@ -20,6 +21,11 @@ from case_lifecycle import (
 )
 from case_intelligence import quality_summary
 from recommendation_engine import recommend_case_action
+from analyst_checklist import (
+    ensure_case_checklist,
+    get_checklist_history,
+    set_task_completion,
+)
 
 
 st.set_page_config(
@@ -497,6 +503,109 @@ def show_live_dashboard(df):
     )
 
     # ========================================
+    # PERSISTENT ANALYST ACTION CHECKLIST
+    # ========================================
+
+    st.divider()
+    st.subheader("Analyst Action Checklist")
+    action_type = str(case["action_type"])
+
+    try:
+        checklist = ensure_case_checklist(selected, action_type)
+    except (ValueError, sqlite3.Error) as exc:
+        st.error(f"Unable to load checklist: {exc}")
+        checklist = None
+
+    if checklist is not None:
+        done_count = sum(int(task["completed"]) for task in checklist)
+        st.write(f"**Progress:** {done_count} of {len(checklist)} tasks completed")
+        if checklist:
+            st.progress(done_count / len(checklist))
+
+        st.caption(
+            "Check off actions you actually completed. Completion does not "
+            "verify agency approval, filing, or legal compliance. "
+            "Updates are saved only when you select Save Checklist."
+        )
+
+        default_analyst = (
+            str(case["assigned_to"]).strip()
+            if pd.notna(case["assigned_to"]) else ""
+        )
+        form_key = f"checklist_{selected}_{action_type}"
+        with st.form(form_key):
+            analyst_name = st.text_input(
+                "Analyst Name (required)",
+                value=default_analyst,
+                key=f"checklist_analyst_{selected}_{action_type}",
+            )
+            desired = {}
+            for task in checklist:
+                task_key = task["task_key"]
+                desired[task_key] = st.checkbox(
+                    task["task_label"],
+                    value=bool(task["completed"]),
+                    key=f"task_{selected}_{action_type}_{task_key}",
+                )
+                if task["completed"]:
+                    st.caption(
+                        f"Completed by {task['completed_by'] or 'Unknown'} "
+                        f"at {task['completed_at'] or 'Unknown'} (UTC)"
+                    )
+            change_note = st.text_input(
+                "Change note (optional)",
+                key=f"checklist_note_{selected}_{action_type}",
+            )
+            save_checklist = st.form_submit_button("Save Checklist")
+
+        if save_checklist:
+            changed_tasks = [
+                task for task in checklist
+                if desired[task["task_key"]] != bool(task["completed"])
+            ]
+            if not analyst_name.strip():
+                st.error("Enter an analyst name before saving.")
+            elif not changed_tasks:
+                st.info("No checklist changes to save.")
+            else:
+                try:
+                    for task in changed_tasks:
+                        set_task_completion(
+                            selected,
+                            action_type,
+                            task["task_key"],
+                            bool(desired[task["task_key"]]),
+                            analyst_name,
+                            note=change_note,
+                        )
+                except (ValueError, sqlite3.Error) as exc:
+                    st.error(f"Checklist update failed: {exc}")
+                else:
+                    st.success(f"Saved {len(changed_tasks)} task update(s).")
+                    st.rerun()
+
+        with st.expander("Checklist Activity History"):
+            try:
+                checklist_events = get_checklist_history(selected)
+                if checklist_events:
+                    events_df = pd.DataFrame(checklist_events)
+                    events_df["change"] = events_df["new_completed"].map(
+                        {1: "Completed", 0: "Reopened"}
+                    )
+                    st.dataframe(
+                        events_df[[
+                            "changed_at", "action_type", "task_label",
+                            "change", "changed_by", "note",
+                        ]],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.info("No checklist activity recorded yet.")
+            except sqlite3.Error as exc:
+                st.error(f"Unable to load checklist history: {exc}")
+
+    # ========================================
     # QUALITY & FRESHNESS
     # ========================================
 
@@ -636,26 +745,20 @@ def show_live_dashboard(df):
     ):
         st.success("AI analysis available")
 
-        st.write(
-            "**Predicted Category:**",
-            analysis["predicted_case_type"],
-        )
-        st.write(
-            "**Predicted State:**",
-            analysis["predicted_state"],
-        )
-        st.write(
-            "**AI Dependency Prediction:**",
-            analysis["predicted_dependency"],
-        )
-        st.write(
-            "**AI Missing Information:**",
-            analysis["missing_information"],
-        )
-        st.write(
-            "**AI Suggested Action:**",
-            analysis["recommended_next_action"],
-        )
+        st.markdown("#### Case Information (from intake)")
+        st.write("**Selected Category:**", case["case_type"])
+        st.write("**State:**", case["state"])
+
+        st.markdown("#### AI-Generated Operational Insights")
+        assessed = analysis["predicted_case_type"]
+        selected_category = case["case_type"]
+        if assessed == selected_category:
+            st.write("**AI Category Assessment:**", assessed, "— Matches intake category")
+        else:
+            st.write("**AI Category Assessment:**", assessed, "— Differs from intake category; review recommended")
+        st.write("**Identified Dependency:**", analysis["predicted_dependency"])
+        st.write("**Missing Information:**", expand_agency_terms(analysis["missing_information"]))
+        st.write("**Recommended Next Action:**", expand_agency_terms(analysis["recommended_next_action"]))
 
         st.caption(
             f"Model: {analysis['model_name']} | "
@@ -915,42 +1018,27 @@ st.title(
 )
 
 live_df = load_live_cases()
-simulation_df = load_simulation()
 
-tab1, tab2 = st.tabs([
-    "Live Cases (SQLite)",
-    "Original 50-Case Simulation",
-])
+st.info(
+    "Live SLA evaluation uses local computer "
+    "time. Business hours are Monday–Friday, "
+    "9 AM–6 PM. Holidays, timezone differences "
+    "and SLA pauses are not modeled."
+)
 
-with tab1:
-    st.info(
-        "Live SLA evaluation uses local computer "
-        "time. Business hours are Monday–Friday, "
-        "9 AM–6 PM. Holidays, timezone differences "
-        "and SLA pauses are not modeled."
+st.caption(
+    "Evaluation time: "
+    + pd.Timestamp.now().strftime(
+        "%Y-%m-%d %H:%M:%S"
     )
+)
 
-    st.caption(
-        "Evaluation time: "
-        + pd.Timestamp.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+if live_df.empty:
+    st.warning(
+        "No SQLite cases found."
     )
-
-    if live_df.empty:
-        st.warning(
-            "No SQLite cases found."
-        )
-    else:
-        show_live_dashboard(live_df)
-
-with tab2:
-    if simulation_df.empty:
-        st.error(
-            "Original simulation CSV not found."
-        )
-    else:
-        show_simulation(simulation_df)
+else:
+    show_live_dashboard(live_df)
 
 st.divider()
 st.caption(

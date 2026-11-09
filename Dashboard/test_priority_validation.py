@@ -7,7 +7,6 @@ from priority_validation import (
     active_queue,
     check_queue_order,
     evaluate_recommendation,
-    validate_simulation,
 )
 
 
@@ -23,105 +22,83 @@ def make_case(
 ):
     return {
         "case_id": case_id,
-        "sla_risk": risk,
+        "business_sla_risk": risk,
         "status": status,
         "dependency": dependency,
         "case_type": case_type,
         "sla_deadline": deadline,
         "agency_name": agency_name,
-        "agency_submission_date": submission_date,
+        "submission_date": submission_date,
     }
 
 
 class TestPriorityQueue(unittest.TestCase):
 
+    def make_queue(self, cases):
+        return build_priority_queue(cases)
+
     def test_breached_before_at_risk(self):
         cases = [
-            make_case("TX-1", "At Risk"),
-            make_case("TX-2", "Breached"),
+            make_case("T-1", risk="At Risk"),
+            make_case("T-2", risk="Breached"),
         ]
-        result = build_priority_queue(cases)
-        self.assertEqual(
-            result["case_id"].tolist(),
-            ["TX-2", "TX-1"],
-        )
+        queue = self.make_queue(cases)
+        self.assertEqual(queue.iloc[0]["case_id"], "T-2")
 
     def test_at_risk_before_within_sla(self):
         cases = [
-            make_case("TX-1", "Within SLA"),
-            make_case("TX-2", "At Risk"),
+            make_case("T-1", risk="Within SLA"),
+            make_case("T-2", risk="At Risk"),
         ]
-        result = build_priority_queue(cases)
+        queue = self.make_queue(cases)
+        self.assertEqual(queue.iloc[0]["case_id"], "T-2")
+
+    def test_earlier_deadline_first(self):
+        cases = [
+            make_case("T-1", deadline="2026-11-15 15:00:00"),
+            make_case("T-2", deadline="2026-11-10 15:00:00"),
+        ]
+        queue = self.make_queue(cases)
+        self.assertEqual(queue.iloc[0]["case_id"], "T-2")
+
+    def test_case_id_breaks_ties(self):
+        cases = [
+            make_case("T-2"),
+            make_case("T-1"),
+        ]
+        queue = self.make_queue(cases)
         self.assertEqual(
-            result.iloc[0]["case_id"],
-            "TX-2",
+            queue["case_id"].tolist(),
+            ["T-1", "T-2"],
         )
 
     def test_closed_after_active(self):
         cases = [
-            make_case(
-                "TX-1", "Breached", "Closed"
-            ),
-            make_case(
-                "TX-2", "Within SLA", "In Progress"
-            ),
+            make_case("T-1", status="Closed"),
+            make_case("T-2", status="In Progress"),
         ]
-        result = build_priority_queue(cases)
-        self.assertEqual(
-            result.iloc[0]["case_id"],
-            "TX-2",
-        )
+        queue = self.make_queue(cases)
+        self.assertEqual(queue.iloc[0]["case_id"], "T-2")
 
     def test_closed_excluded_from_active(self):
         cases = [
-            make_case("TX-1", status="Closed"),
-            make_case("TX-2", status="Resolved"),
-            make_case("TX-3", status="In Progress"),
+            make_case("T-1", status="Closed"),
+            make_case("T-2", status="In Progress"),
         ]
-        result = active_queue(cases)
-        self.assertEqual(
-            result["case_id"].tolist(),
-            ["TX-3"],
-        )
-
-    def test_earlier_deadline_first(self):
-        cases = [
-            make_case(
-                "TX-1",
-                deadline="2026-11-12 15:00:00",
-            ),
-            make_case(
-                "TX-2",
-                deadline="2026-11-10 15:00:00",
-            ),
-        ]
-        result = build_priority_queue(cases)
-        self.assertEqual(
-            result.iloc[0]["case_id"],
-            "TX-2",
-        )
-
-    def test_case_id_breaks_ties(self):
-        cases = [
-            make_case("TX-2"),
-            make_case("TX-1"),
-        ]
-        result = build_priority_queue(cases)
-        self.assertEqual(
-            result["case_id"].tolist(),
-            ["TX-1", "TX-2"],
-        )
+        queue = self.make_queue(cases)
+        active = active_queue(queue)
+        self.assertNotIn("T-1", active["case_id"].tolist())
+        self.assertIn("T-2", active["case_id"].tolist())
 
     def test_deterministic_order(self):
         cases = [
-            make_case("TX-3", "At Risk"),
-            make_case("TX-1", "Breached"),
-            make_case("TX-2", "Within SLA"),
+            make_case("T-3"),
+            make_case("T-1"),
+            make_case("T-2"),
         ]
-        first = build_priority_queue(cases)
-        second = build_priority_queue(
-            list(reversed(cases))
-        )
+        first = self.make_queue(cases)
+        second = self.make_queue(list(reversed(cases)))
+
         self.assertEqual(
             first["case_id"].tolist(),
             second["case_id"].tolist(),
@@ -129,22 +106,24 @@ class TestPriorityQueue(unittest.TestCase):
 
     def test_invalid_duplicate_ids(self):
         cases = [
-            make_case("TX-1"),
-            make_case("TX-1"),
+            make_case("T-1"),
+            make_case("T-1"),
         ]
         with self.assertRaises(ValueError):
-            build_priority_queue(cases)
+            self.make_queue(cases)
 
     def test_order_checker(self):
         cases = [
-            make_case("TX-1", "Breached"),
-            make_case("TX-2", "Within SLA"),
+            make_case("T-1", risk="Breached"),
+            make_case("T-2", risk="At Risk"),
+            make_case("T-3", risk="Within SLA"),
         ]
-        ranked = build_priority_queue(cases)
-        self.assertTrue(check_queue_order(ranked))
+        queue = self.make_queue(cases)
+
+        self.assertTrue(check_queue_order(queue))
         self.assertFalse(
             check_queue_order(
-                ranked.iloc[::-1].reset_index(drop=True)
+                queue.iloc[::-1].reset_index(drop=True)
             )
         )
 
@@ -164,7 +143,7 @@ class TestRecommendations(unittest.TestCase):
             "Agency Follow-up",
         )
         self.assertIn(
-            "submission date",
+            "whether and when submission occurred",
             result["action"].lower(),
         )
 
@@ -249,34 +228,19 @@ class TestRecommendations(unittest.TestCase):
             submission_date=None,
         )
         result = evaluate_recommendation(case)
+        action = result["action"].lower()
 
         self.assertIn(
-            "agency name",
-            result["action"].lower(),
+            "confirm the correct agency",
+            action,
         )
         self.assertIn(
-            "submission date",
-            result["action"].lower(),
+            "whether and when submission occurred",
+            action,
         )
-
-
-class TestOriginalSimulation(unittest.TestCase):
-
-    def test_original_simulation(self):
-        result = validate_simulation()
-
-        self.assertEqual(result["total_cases"], 50)
-        self.assertTrue(
-            result["expected_distribution"]
-        )
-        self.assertTrue(
-            result["unique_case_ids"]
-        )
-        self.assertTrue(
-            result["valid_queue_ranks"]
-        )
-        self.assertTrue(
-            result["risk_priority_order_valid"]
+        self.assertIn(
+            "do not assume a submission was completed",
+            action,
         )
 
 

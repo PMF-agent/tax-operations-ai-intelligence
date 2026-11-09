@@ -2,227 +2,207 @@
 
 **Python · Streamlit · SQLite · Ollama · pandas · unittest**
 
-An independent, local-first prototype demonstrating
-how deterministic operational rules and advisory AI
-can support tax operations case management.
+A local-first operational intelligence prototype designed to help analysts prioritize tax operations cases, identify SLA risks, manage external dependencies, and track recommended actions through an auditable workflow.
 
-> This project uses synthetic examples. It is not
-> affiliated with Rippling or any government agency.
-> It is not a production tax-compliance system.
+> **Disclaimer:** This is an independent portfolio project using synthetic data. It is not affiliated with Rippling or any government agency and is not a production tax-compliance platform.
 
-## The Problem
+## 1. Business Problem
 
-Operations analysts may need to manage multiple
-cases with different SLA commitments, customer
-dependencies, external agency blockers, and
-documentation requirements.
+Tax operations teams may handle numerous cases involving employer registrations, agency notices, missing documentation, and customer or government-agency dependencies.
 
-Without a consistent prioritisation workflow,
-it can be difficult to distinguish urgent cases
-from cases requiring routine follow-up.
+Without structured prioritization and execution tracking, analysts may struggle to identify which cases require immediate attention, what actions should be taken, and whether previous work has been completed.
 
-## The Solution
+## 2. Solution Overview
 
-This prototype brings together:
+The application combines deterministic operational rules, advisory AI analysis, and persistent case-management workflows.
 
-1. Case intake and SQLite persistence
-2. Business-hour and calendar-hour SLA modeling
-3. Risk-based operational prioritisation
-4. Context-aware next-action recommendations
-5. Local AI-assisted case classification
-6. AI freshness checks after case changes
-7. Case lifecycle audit history
-8. Synthetic evaluation and automated validation
+Key capabilities include:
 
-## Architecture
+- **Case Intake:** Capture and store new cases in SQLite.
+- **SLA Intelligence:** Calculate modeled SLA risk and prioritize operational cases.
+- **Context-Aware Recommendations:** Suggest next actions based on case status, dependencies, and operational context.
+- **Analyst Action Checklist:** Generate workflow-specific tasks and preserve their completion status.
+- **Workflow Transition Management:** Support case-status changes while retaining previous checklists.
+- **Audit History:** Record case changes and checklist activity for traceability.
+- **Local AI Analysis:** Use Ollama for advisory case analysis without overriding deterministic SLA rules.
+
+## 3. System Architecture
 
 ```mermaid
 flowchart TD
-    U[Operations Analyst] --> UI[Streamlit]
-    UI --> DB[(SQLite)]
-    DB --> SLA[SLA Rules]
-    DB --> REC[Recommendation Rules]
-    UI --> AI[Local Ollama]
-    AI --> SAVED[(Saved AI Analysis)]
-    DB --> F[Input Fingerprint]
-    SAVED --> F
-    SLA --> Q[Priority Queue]
-    REC --> Q
-    F --> UI
-    Q --> UI
+    A[Operations Analyst] --> B[Streamlit Dashboard]
+    B --> C[Case Intake and Lifecycle]
+    B --> D[SLA and Priority Engine]
+    B --> E[Recommendation Engine]
+    B --> F[Analyst Checklist]
+    B --> G[Local Ollama AI]
+    C --> H[(SQLite Database)]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+    H --> B
 ```
 
-The SLA engine and recommendation engine use
-deterministic Python logic.
+The application uses deterministic Python logic for operational prioritization and recommendations. Local AI provides supporting analysis rather than making autonomous compliance decisions.
 
-Ollama provides advisory analysis and does not
-override the SLA rules.
+## 4. Technology Stack
 
-## Technology Stack
-
-| Layer | Technology |
+| Component | Technology |
 |---|---|
-| Application | Streamlit |
-| Language | Python |
+| Programming language | Python |
+| User interface | Streamlit |
+| Database | SQLite |
 | Data processing | pandas |
-| Persistence | SQLite |
-| Local AI | Ollama, qwen3:8b |
-| Testing | unittest |
-| Data | Synthetic cases |
+| Local AI | Ollama with qwen3:8b |
+| Automated validation | unittest and Python test scripts |
+| Version control | Git and GitHub |
 
-## SLA Policy
+## 5. Quick Start
 
-The business-hours model assumes:
+### Prerequisites
 
-- Monday–Friday
-- 09:00–18:00
+- Python environment with the required dependencies
+- Ollama installed locally for AI inference
+- The `qwen3:8b` model downloaded if live AI analysis is required
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/PMF-agent/tax-operations-ai-intelligence.git
+cd tax-operations-ai-intelligence
+```
+
+Install Python dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Create the synthetic demo database:
+
+```bash
+python initialize_demo_db.py
+```
+
+Launch the application:
+
+```bash
+python -m streamlit run Dashboard/app.py
+```
+
+Open `http://localhost:8501` in your browser.
+
+For local AI inference, install Ollama and download the configured model:
+
+```bash
+ollama pull qwen3:8b
+```
+
+The dashboard's deterministic operational features can be used independently of live AI inference, subject to the application's configured dependencies.
+
+## 6. Analyst Action Checklist
+
+The checklist module converts recommended operational actions into trackable tasks.
+
+For example, an Agency Follow-up workflow can contain tasks for verifying the agency submission and documenting follow-up activity.
+
+When a case transitions to a Customer Follow-up workflow:
+
+1. The recommendation engine identifies the new action type.
+2. The application generates the corresponding checklist.
+3. Previously completed agency tasks remain preserved.
+4. Checklist completion events remain available in the audit history.
+
+### Verified workflow example
+
+A synthetic test case, `TX-1051`, was transitioned from `Pending Agency` to `Pending Customer`.
+
+The resulting SQLite verification confirmed:
+
+| Item | Verified result |
+|---|---|
+| Case status | Pending Customer |
+| Previous agency checklist | 6 tasks preserved |
+| Previously completed agency tasks | 1 |
+| New customer checklist | 4 tasks |
+| Previous checklist completion event | Preserved |
+
+This demonstrates workflow isolation and historical traceability.
+
+## 7. SLA Modeling
+
+The business-hours SLA simulation uses the following assumptions:
+
+- Monday through Friday
+- 09:00–18:00 business hours
 - No public holidays
 - No timezone conversion
-- No SLA pauses
+- No automatic SLA pauses
 
-The live priority queue places active cases first,
-then orders by risk, deadline, and case ID.
+The original 50-case simulation produced:
 
-## Original 50-Case Simulation
-
-Under the modeled business-hours policy:
-
-| Classification | Count |
+| Classification | Cases |
 |---|---:|
 | Breached | 2 |
 | At Risk | 5 |
 | Within SLA | 43 |
 | Total | 50 |
 
-These are fixed synthetic simulation outcomes,
-not measured operational improvements.
+These are modeled synthetic outcomes, not measured operational improvements.
 
-The calendar-hours comparison demonstrates
-sensitivity to SLA policy assumptions.
+## 8. Validation
 
-## AI Evaluation
+The project has undergone local validation covering:
 
-AI classification was evaluated against
-provisional synthetic reference labels.
+- Priority-ordering logic
+- Context-aware recommendation rules
+- Case lifecycle and audit history
+- AI input freshness checks
+- Checklist creation and persistence
+- Checklist workflow isolation
+- Status transitions and historical preservation
+- Fresh synthetic database initialization
+- Dashboard startup against an independently generated database
 
-The evaluation is not an independently verified
-measure of real-world model accuracy.
+The database initializer was tested in an isolated Windows temporary directory and successfully generated 50 synthetic cases with SQLite integrity verification.
 
-Raw model and hybrid prediction results must
-not be conflated.
+The isolated dashboard also loaded successfully, displayed the synthetic cases, generated context-aware recommendations, and showed the Analyst Action Checklist.
 
-See the technical documentation for the
-evaluation methodology and limitations.
+These results are local development validations, not evidence of production readiness.
 
-## Validation
+## 9. Security and Data
 
-The project includes:
+- All included demonstration records are synthetic.
+- Local SQLite databases are excluded from Git tracking.
+- Secrets and environment files are excluded through `.gitignore`.
+- Local AI inference does not require sending case information to a hosted AI provider.
+- The prototype does not implement production authentication or role-based access control.
 
-- Deterministic priority-ordering tests
-- Recommendation-rule tests
-- Isolated SQLite lifecycle and audit tests
-- Input fingerprint and freshness tests
-- Original simulation consistency checks
+## 10. Known Limitations
 
-The isolated integration suite passed eight tests
-during local validation.
+- Synthetic data rather than real operational records
+- Simplified SLA calendar assumptions
+- No production authentication or authorization
+- No independently verified regulatory deadlines
+- No automated browser-level end-to-end test suite
+- No production-scale performance testing
+- No independently measured reduction in SLA breaches
+- Local AI inference requires a compatible Ollama installation and model
 
-Seven additional manual application checks
-were reported as passed.
+## 11. Future Improvements
 
-The automated suite does not test a production
-deployment or regulatory compliance.
+- Configurable holiday-aware SLA calendars
+- Role-based access controls
+- Automated end-to-end browser testing
+- Containerized development and deployment
+- More extensive model evaluation using independently reviewed reference labels
+- Configurable workflow templates and escalation policies
 
-## Repository Contents
+## 12. Project Purpose
 
-```text
-Dashboard/
-  app.py
-  ai_engine.py
-  case_intake.py
-  case_lifecycle.py
-  case_intelligence.py
-  recommendation_engine.py
-  evaluate_ai.py
-  priority_validation.py
-  test_priority_validation.py
-  test_integration.py
-  run_priority_validation.py
-  run_integration_validation.py
-docs/
-  ARCHITECTURE.md
-  TECHNICAL_DESIGN.md
-  DEMO_SCRIPT.md
-  PROJECT_SUMMARY.md
-```
+This independent portfolio project demonstrates how Python, SQLite, local AI, and workflow automation can be combined to create an explainable operations-support system.
 
-## Local Development
-
-The prototype was developed in a Windows
-Anaconda environment.
-
-Core application dependencies include
-Python, pandas, Streamlit, and Ollama.
-
-A local Ollama installation with qwen3:8b
-is needed for live AI inference.
-
-```bat
-conda activate taxops
-cd Dashboard
-streamlit run app.py
-```
-
-Open http://localhost:8501
-
-### Important Setup Limitation
-
-This public source-code package intentionally
-excludes the local SQLite database, saved
-prediction files, and simulation output.
-
-Consequently, it is a **code-review package**,
-not a fully reproducible one-command demo.
-
-The complete demonstration runs in the
-original local development environment.
-
-Do not use the packaged source alone to
-claim that all functionality can run without
-the excluded data artifacts.
-
-## Security and Privacy
-
-- No real customer information is required
-- Local SQLite data is excluded
-- Model inference runs locally
-- Secrets and machine-specific files are excluded
-- No production authentication is implemented
-
-## Known Limitations
-
-- Synthetic reference data
-- No independently verified agency deadlines
-- No holiday-aware SLA calendars
-- No timezone or SLA pause support
-- No role-based access controls
-- No automated browser-level testing
-- No independently measured reduction in breaches
-- No production-scale performance validation
-
-## Future Improvements
-
-- Portable synthetic demo fixtures
-- Independent human-reviewed evaluation labels
-- Holiday-aware and configurable SLA policies
-- Role-based access and authentication
-- Automated end-to-end browser tests
-- Containerized development environment
-- Human feedback on AI recommendations
-
-## Project Context
-
-Independent educational and technical
-portfolio project demonstrating operations
-automation, technical implementation,
-and explainable AI system design.
+It is intended to demonstrate technical implementation, operational problem-solving, and AI-assisted workflow design—not to provide legal, tax, or regulatory advice.
